@@ -438,6 +438,14 @@ class Command(BaseCommand):
         parser.add_argument("-l", "--levels", type=int, action="store", dest="levels", default=2, help="Number of levels of nesting of the competition.")
 
         parser.add_argument("-s", "--seed", type=int, action="store", dest="seed", help="Random seed to use for problem name randomization.")
+        
+        parser.add_argument(
+            "--with-instances",
+            action="store_true",
+            dest="with_instances",
+            help="Give each problem a controller and a main problem instance, so that its problem page can be opened."
+        )
+
 
     @transaction.atomic
     def handle(self, *args, **options):
@@ -448,6 +456,8 @@ class Command(BaseCommand):
         levels = [1]
         levels.append(options["branches"])
         levels += [3] * (options["levels"] - 1)
+
+        with_instances = options["with_instances"]
 
         PROBLEMS_PER_LEAF = 3
 
@@ -465,10 +475,15 @@ class Command(BaseCommand):
                 for _i in range(PROBLEMS_PER_LEAF):
                     words = [random.choice(WORDS), random.choice(WORDS)]
                     problem_name = "Problem {} {} {}".format(words[0], words[1], "".join(random.choices(string.digits, k=6)))
-                    p = Problem(
-                        # The short name will be the first word in lower case
-                        short_name=words[0].lower()
-                    )
+                    # The short name will be the first word in lower case
+                    short_name = words[0].lower()
+                    if with_instances:
+                        p = Problem.create(short_name=short_name, controller_name="oioioi.problems.controllers.ProblemController")
+                    else:
+                        p = Problem(
+                            short_name=words[0].lower()
+                        )
+
                     problems.append(p)
 
                     name = ProblemName(problem=p, language=get_language(), name=problem_name)
