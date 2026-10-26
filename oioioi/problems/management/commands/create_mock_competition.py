@@ -2,10 +2,10 @@ import random
 import re
 import string
 
+from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils.translation import get_language
-from django.contrib.auth.models import User
 
 from oioioi.contests.models import ScoreReport, Submission, SubmissionReport, UserResultForProblem
 from oioioi.contests.scores import IntegerScore
@@ -394,11 +394,7 @@ def populate_results(problem_instance, user):
     )
     sub.save()
 
-    sub_report = SubmissionReport(
-        submission=sub,
-        kind="FINAL",
-        status="ACTIVE"
-    )
+    sub_report = SubmissionReport(submission=sub, kind="FINAL", status="ACTIVE")
     sub_report.save()
 
     ScoreReport(
@@ -408,12 +404,7 @@ def populate_results(problem_instance, user):
         max_score=IntegerScore(100),
     ).save()
 
-    UserResultForProblem(
-        user=user,
-        problem_instance=problem_instance,
-        score=IntegerScore(score),
-        submission_report=sub_report
-    ).save()
+    UserResultForProblem(user=user, problem_instance=problem_instance, score=IntegerScore(score), submission_report=sub_report).save()
 
 
 def create_origin_info_values(origin_tag, levels, categories):
@@ -474,23 +465,15 @@ class Command(BaseCommand):
         parser.add_argument("-l", "--levels", type=int, action="store", dest="levels", default=2, help="Number of levels of nesting of the competition.")
 
         parser.add_argument("-s", "--seed", type=int, action="store", dest="seed", help="Random seed to use for problem name randomization.")
-        
+
         parser.add_argument(
             "--with-instances",
             action="store_true",
             dest="with_instances",
-            help="Give each problem a controller and a main problem instance, so that its problem page can be opened."
+            help="Give each problem a controller and a main problem instance, so that its problem page can be opened.",
         )
 
-        parser.add_argument(
-            "--results-for",
-            type=str,
-            action="store",
-            dest="user",
-            help="Create random results for subset of the problems for given user."
-        )
-
-
+        parser.add_argument("--results-for", type=str, action="store", dest="user", help="Create random results for subset of the problems for given user.")
 
     @transaction.atomic
     def handle(self, *args, **options):
@@ -534,9 +517,7 @@ class Command(BaseCommand):
                         if results_user is not None and random.random() < 0.5:
                             populate_results(p.main_problem_instance, results_user)
                     else:
-                        p = Problem(
-                            short_name=words[0].lower()
-                        )
+                        p = Problem(short_name=words[0].lower())
 
                     problems.append(p)
 
