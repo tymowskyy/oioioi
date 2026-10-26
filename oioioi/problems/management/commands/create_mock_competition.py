@@ -2,10 +2,13 @@ import random
 import re
 import string
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils.translation import get_language
+from django.contrib.auth.models import User
 
+from oioioi.contests.models import ScoreReport, Submission, SubmissionReport, UserResultForProblem
+from oioioi.contests.scores import IntegerScore
 from oioioi.problems.models import (
     OriginInfoCategory,
     OriginInfoValue,
@@ -380,6 +383,39 @@ def create_origin_info_categories(origin_tag, levels):
     return categories
 
 
+def populate_results(problem_instance, user):
+    score = random.choice([0, 100, random.randint(1, 99)])
+    status = "OK" if score == 100 else "WA"
+
+    sub = Submission(
+        problem_instance=problem_instance,
+        user=user,
+        score=IntegerScore(score),
+    )
+    sub.save()
+
+    sub_report = SubmissionReport(
+        submission=sub,
+        kind="FINAL",
+        status="ACTIVE"
+    )
+    sub_report.save()
+
+    ScoreReport(
+        submission_report=sub_report,
+        status=status,
+        score=IntegerScore(score),
+        max_score=IntegerScore(100),
+    ).save()
+
+    UserResultForProblem(
+        user=user,
+        problem_instance=problem_instance,
+        score=IntegerScore(score),
+        submission_report=sub_report
+    ).save()
+
+
 def create_origin_info_values(origin_tag, levels, categories):
     """Create levels[level] values for each category"""
     info_values = [[] for i in range(len(levels))]
@@ -446,6 +482,15 @@ class Command(BaseCommand):
             help="Give each problem a controller and a main problem instance, so that its problem page can be opened."
         )
 
+        parser.add_argument(
+            "--results-for",
+            type=str,
+            action="store",
+            dest="user",
+            help="Create random results for subset of the problems for given user."
+        )
+
+
 
     @transaction.atomic
     def handle(self, *args, **options):
@@ -458,6 +503,12 @@ class Command(BaseCommand):
         levels += [3] * (options["levels"] - 1)
 
         with_instances = options["with_instances"]
+        results_user = None
+        if options["user"] is not None:
+            try:
+                results_user = User.objects.get(username=options["user"])
+            except User.DoesNotExist:
+                raise CommandError(f"User '{options['user']}' does not exist.")
 
         PROBLEMS_PER_LEAF = 3
 
@@ -477,8 +528,11 @@ class Command(BaseCommand):
                     problem_name = "Problem {} {} {}".format(words[0], words[1], "".join(random.choices(string.digits, k=6)))
                     # The short name will be the first word in lower case
                     short_name = words[0].lower()
-                    if with_instances:
+                    if with_instances or results_user is not None:
                         p = Problem.create(short_name=short_name, controller_name="oioioi.problems.controllers.ProblemController")
+
+                        if results_user is not None and random.random() < 0.5:
+                            populate_results(p.main_problem_instance, results_user)
                     else:
                         p = Problem(
                             short_name=words[0].lower()
