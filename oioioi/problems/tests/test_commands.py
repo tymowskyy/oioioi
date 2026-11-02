@@ -4,6 +4,7 @@ import pytest
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management import CommandError, call_command
+from django.db import transaction
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
@@ -343,6 +344,21 @@ class TestCreateMockCompetition(TestCase):
         problems_with_results = UserResultForProblem.objects.filter(problem_instance__problem__in=problems).values_list("problem_instance__problem", flat=True)
         return set(OriginInfoValue.objects.filter(category__name=category, problems__in=problems_with_results).values_list("value", flat=True))
 
+    def _results_snapshot(self, seed):
+        """Create a competition with the seed, return its problems and results, and roll it all back.
+
+        Running the same seed twice in one database would repeat the problem site keys.
+        """
+        with transaction.atomic():
+            problems = self._create_competition("mock", "-b", "3", "-l", "2", "-s", str(seed), "--with-instances", "--results-for", "test_user")
+            snapshot = sorted(
+                (problem.names.get().name, result.score.to_int() if result else None)
+                for problem in problems
+                for result in [UserResultForProblem.objects.filter(problem_instance=problem.main_problem_instance).first()]
+            )
+            transaction.set_rollback(True)
+        return snapshot
+
     def test_without_flags(self):
         problems = self._create_competition("plain", "-b", "3", "-l", "2", "-s", "0")
 
@@ -400,6 +416,10 @@ class TestCreateMockCompetition(TestCase):
                     self.assertIn(100, scores)
                     self.assertIn(0, scores)
                     self.assertTrue(any(0 < score < 100 for score in scores))
+
+    def test_results_seed_repeatability(self):
+        self.assertEqual(self._results_snapshot(7), self._results_snapshot(7))
+        self.assertNotEqual(self._results_snapshot(7), self._results_snapshot(8))
 
     def test_results_for_unknown_user(self):
         with self.assertRaises(CommandError):
