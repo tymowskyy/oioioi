@@ -100,6 +100,13 @@ Developer environment can be easily set up by running::
 
 For system requirements check `easy_toolbox.py`.
 
+By default the script runs ``docker compose -f docker-compose-dev.yml``. If the ``COMPOSE_FILE`` environment variable
+is set, the ``-f`` option is dropped and Docker Compose uses the files listed there instead. This lets you layer local
+overrides (e.g. extra volumes, resource limits or different port mappings) without editing ``docker-compose-dev.yml``::
+
+    export COMPOSE_FILE=docker-compose-dev.yml:docker-compose-dev.override.yml
+    ./easy_toolbox.py up
+
 Running static code analysis tools locally
 ~~~~~~~~~~~~~~~~~~~~~~~
 .. _ruff: https://github.com/astral-sh/ruff

@@ -25,7 +25,13 @@ if sys.platform == "win32":
 else:
     command_prefix = "OIOIOI_UID=$(id -u)"
 
-BASE_DOCKER_COMMAND = f"{command_prefix} docker compose -f docker-compose-dev.yml"
+# If COMPOSE_FILE is set, let docker compose pick the files from it instead of
+# forcing docker-compose-dev.yml. This lets developers layer local overrides,
+# e.g. COMPOSE_FILE=docker-compose-dev.yml:my-override.yml (use ';' on Windows).
+if os.environ.get("COMPOSE_FILE"):
+    BASE_DOCKER_COMMAND = f"{command_prefix} docker compose"
+else:
+    BASE_DOCKER_COMMAND = f"{command_prefix} docker compose -f docker-compose-dev.yml"
 
 RAW_COMMANDS = [
     (
